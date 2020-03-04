@@ -24,13 +24,13 @@ This sample shows how to identify cells that need refinement in a 3D structured 
 ## optixUniqPaths ##
 **Finding unique bounce paths of rays in a complex geometry.**
 
-This sample shows how to determine the set of unique paths (scattering sequences) through a complex geometry. We send a number of rays into a geometry consisting of perfect reflectors read from a file (in case of the sample, a sphere and two planes). For each ray, the sequence of reflections is recorded. Once all the sequences have been determined, the set of unique paths are constructed. 
+This sample shows how to determine the set of unique paths (scattering sequences) through a complex geometry. We send a number of rays into a geometry consisting of perfect reflectors read from a file (in case of the sample, a sphere and two planes). For each ray, the sequence of reflections is recorded. Once all the sequences have been determined, a set of unique paths is constructed. 
 
 
 ## optixRayScattering ##
 **Scattering rays by reflection or refraction.**
 
-This sample shows how to generate rays and bounce them across different surfaces. Rays are reflected between different surfaces and the rays keep bouncing until *max_bounce* is reached. Ray energy can be damped similar to signal propogation, rays can be refracted, and nergy can be deposited at different hit points. This is a typical use case in wave propagation.
+This sample shows how to generate rays and bounce them across different surfaces. Rays are reflected between different surfaces and the rays keep bouncing until *max_bounce* is reached. Ray energy can be damped similar to signal propagation, rays can be refracted, and energy can be deposited at different hit points. This is a typical use case in wave propagation.
 
 ## optixVolumeSampling ##
 **Volume sampling techniques.**
