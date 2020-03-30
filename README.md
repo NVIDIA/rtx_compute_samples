@@ -38,7 +38,7 @@ This sample shows how to generate rays and bounce them across different surfaces
 This sample reads a simple 3D volume. The purpose here is to collect values when a ray hits a geometry along the direction of the ray. Two approaches are shown in this example. In the first approach, a value is accumulated for every hit point the ray encounters, which can be specific to that triangle or geometry primitive. In the second approach, rays of different lengths are shot from the same origin and then do regular sampling of the 3D volume.
 
 ## optixParticleCollision ##
-** Detecting Particle Collisions with Geometry **
+**Detecting Particle Collisions with Geometry**
 
 This sample reads a simple obj file to create a geometry. It then creates a list of particles with positions inside or around the geomtery and random velocity values. Using particle positions as the center of a ray and direction along the velocity, rays are then shot with infinite length. If a ray hits some geometry, then the distance between the position of the particle and geometry is recorded.
 
