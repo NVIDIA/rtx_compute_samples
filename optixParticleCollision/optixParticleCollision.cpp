@@ -252,7 +252,7 @@ int main(int argc, char **argv) {
   return 0;
 }
 
-float random_float_val(float min, float max) {
+float random_float_val(const float min, const float max) {
   assert(max > min);
   float random = ((float)rand()) / (float)RAND_MAX;
   float range = max - min;

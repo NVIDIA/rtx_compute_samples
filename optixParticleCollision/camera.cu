@@ -43,8 +43,10 @@ rtDeclareVariable(PerRayData, payload, rtPayload, );
 rtDeclareVariable(optix::Ray, curr_ray, rtCurrentRay, );
 
 RT_PROGRAM void generate_rays() {
-  float3 ray_origin = position[launch_index.x];
-  float3 ray_direction = optix::normalize(velocity[launch_index.x]);
+  float3 ray_origin =
+      position[launch_index.x]; // Ray origin at the position of the particle
+  float3 ray_direction = optix::normalize(
+      velocity[launch_index.x]); // Ray direction along the velocity direction
 
   optix::Ray ray =
       optix::make_Ray(ray_origin, ray_direction, 0, 0, RT_DEFAULT_MAX);
@@ -55,13 +57,18 @@ RT_PROGRAM void generate_rays() {
   rtTrace(
       top_object, ray, prd, RT_VISIBILITY_ALL,
       RT_RAY_FLAG_DISABLE_ANYHIT); // or RT_RAY_FLAG_NONE if anyhit is required
-  output_distance[launch_index.x] = prd.depth;
+  output_distance[launch_index.x] = prd.depth; // Save output to GPU memory
 }
 
 RT_PROGRAM void exception() { rtPrintExceptionDetails(); }
 
-RT_PROGRAM void closest_hit() { payload.depth = curr_ray.tmax; }
+RT_PROGRAM void closest_hit() {
+  payload.depth = curr_ray.tmax; // Record distance from particle positon to the
+                                 // hit on the geometry
+}
 
 RT_PROGRAM void any_hit() {}
 
-RT_PROGRAM void miss() { payload.depth = -1; }
+RT_PROGRAM void miss() {
+  payload.depth = -1; // If nothing is hit, store -1
+}
