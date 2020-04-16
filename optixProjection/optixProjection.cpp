@@ -336,7 +336,7 @@ int main(int argc, char **argv) {
   start = std::chrono::system_clock::now();
   for (int i = 0; i < Ntimes; i++)
     launch();
-  optix::cudaDeviceSynchronize();
+  cudaDeviceSynchronize();
   end = std::chrono::system_clock::now();
   std::chrono::duration<double> elapsed_seconds_compute =
       (end - start) / Ntimes;

@@ -246,7 +246,7 @@ int main(int argc, char **argv) {
 
   std::cout << "launching" << std::endl;
   launch();
-  optix::cudaDeviceSynchronize();
+  cudaDeviceSynchronize();
 
   destroy_context();
   return 0;
