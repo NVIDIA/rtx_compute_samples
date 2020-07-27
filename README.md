@@ -2,14 +2,14 @@
 The purpose of these code examples is to show how to use ray tracing for computations and discuss some application patterns that could benefit from ray tracing frameworks. These samples do not perform any graphical rendering. The individual samples are described below.
 
 Prior knowledge of basic ray tracing terminology is required. However, in-depth knowledge and experience with ray tracing is not needed.
-Please refer to the *Optix* ray tracing docs: https://raytracing-docs.nvidia.com/optix7/index.html
+Please refer to the *OptiX* ray tracing docs: https://raytracing-docs.nvidia.com/optix7/index.html
 
-The following samples are based on the *Optix 7* API. Old *Optix 6* based samples are in legacy-optix-6 branch in this repository and will no longer be maintained.
+The following samples are based on the *OptiX 7* API. Old *OptiX 6* based samples are in legacy-optix-6 branch in this repository and will no longer be maintained.
 
 ## optixSaxpy ##
 **CUDA/Optix buffer interop.**
 
-This sample shows how to work with CUDA allocated memory buffers and Optix in order to compute a simple *saxpy* operation in the [ray generation program](https://raytracing-docs.nvidia.com/optix6/guide_6_5/index.html#programs#ray-generation-programs). There are no rays traced in the code and no geometry is created. This example is useful to understand the Optix API and code structure.
+This sample shows how to work with CUDA allocated memory buffers and OptiX in order to compute a simple *saxpy* operation in the [ray generation program](https://raytracing-docs.nvidia.com/optix6/guide_6_5/index.html#programs#ray-generation-programs). There are no rays traced in the code and no geometry is created. This example is useful to understand the OptiX API and code structure.
 
 ## optixProjection ##
 **CAD geometry/cartesian mesh mapping.**
@@ -48,7 +48,7 @@ Use CMake (>=3.5) for building.
 
 ```
 mkdir build && cd build
-cmake ../ -DOPTIX_HOME=<path to optix 7>
+cmake ../ -DOPTIX_HOME=<path to OptiX 7>
 make
 ```
 
