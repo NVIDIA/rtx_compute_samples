@@ -1,5 +1,5 @@
 # Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
-#
+# 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
 # are met:
@@ -11,7 +11,7 @@
 #  * Neither the name of NVIDIA CORPORATION nor the names of its
 #    contributors may be used to endorse or promote products derived
 #    from this software without specific prior written permission.
-#
+# 
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
 # EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -24,17 +24,43 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-project (optixParticleCollision LANGUAGES CXX CUDA)
-include_directories(./include)
+# try to locate the Optix installation using the OPTIX_HOME environment variable
+find_path(OPTIX_HOME include/optix.h 
+    PATHS ENV OPTIX_HOME ENV OPTIX_ROOT
+	DOC "Path to Optix installation.")
 
-# ==============================================================================
-# Main Executable
-# ==============================================================================
-add_executable(optixParticleCollision src/optixParticleCollision.cpp src/rtxFunctions.cpp ../common/common.cpp)
-target_link_libraries(optixParticleCollision PRIVATE CUDA::cudart CUDA::cuda_driver OptiX7)
+if(${OPTIX_HOME} STREQUAL "OptiX7_HOME-NOTFOUND")
+	if (${OptiX7_FIND_REQUIRED})
+        message(FATAL_ERROR "OPTIX_HOME not defined")
+	elseif(NOT ${OptiX7_FIND_QUIETLY})
+        message(STATUS "OPTIX_HOME not defined")
+	endif()
+endif()
 
-# ==============================================================================
-# Add any needed PTX compilations here
-# ==============================================================================
-add_ptx_targets(optixParticleCollision optixPrograms)
+# Include
+find_path(OptiX7_INCLUDE_DIR 
+	NAMES optix.h
+    PATHS "${OPTIX_HOME}/include"
+	NO_DEFAULT_PATH
+	)
+find_path(OptiX7_INCLUDE_DIR
+	NAMES optix.h
+	)
+
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(OptiX7 DEFAULT_MSG 
+	OptiX7_INCLUDE_DIR)
+
+set(OptiX7_INCLUDE_DIRS ${OptiX7_INCLUDE_DIR})
+if(WIN32)
+	set(OptiX7_DEFINITIONS NOMINMAX)
+endif()
+mark_as_advanced(OptiX7_INCLUDE_DIRS OptiX7_DEFINITIONS)
+
+add_library(OptiX7 INTERFACE)
+target_compile_definitions(OptiX7 INTERFACE ${OptiX7_DEFINITIONS})
+target_include_directories(OptiX7 INTERFACE ${OptiX7_INCLUDE_DIRS})
+if(NOT WIN32)
+    target_link_libraries(OptiX7 INTERFACE dl)
+endif()
 
