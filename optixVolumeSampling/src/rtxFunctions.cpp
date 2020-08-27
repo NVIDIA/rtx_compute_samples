@@ -404,4 +404,5 @@ OptixAabb RTXDataHolder::read_volume_mesh(const std::string &vol_filename,
     aabb.maxY = std::max(aabb.maxY, vertex.y);
     aabb.maxZ = std::max(aabb.maxZ, vertex.z);
   }
+  return aabb;
 }
