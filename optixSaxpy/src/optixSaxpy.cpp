@@ -121,7 +121,6 @@ void createSaxpyPipeline(
   OptixPipelineLinkOptions pipeline_link_options = {};
   pipeline_link_options.maxTraceDepth = 1;
   pipeline_link_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
-  pipeline_link_options.overrideUsesMotionBlur = false;
 
   OPTIX_CHECK(optixPipelineCreate(optix_context, &pipeline_compile_options,
                                   &pipeline_link_options, program_groups, 3,

@@ -172,7 +172,7 @@ void RTXDataHolder::linkPipeline() {
     // have recursive trace.
     pipeline_link_options.maxTraceDepth = 1;
     pipeline_link_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_NONE;
-    pipeline_link_options.overrideUsesMotionBlur = 0;
+
     OPTIX_CHECK(optixPipelineCreate(
         optix_context, &pipeline_compile_options, &pipeline_link_options,
         program_groups, sizeof(program_groups) / sizeof(program_groups[0]),
@@ -190,7 +190,6 @@ void RTXDataHolder::linkPipeline() {
     // have recursive trace.
     pipeline_link_options.maxTraceDepth = 1;
     pipeline_link_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_NONE;
-    pipeline_link_options.overrideUsesMotionBlur = 0;
     OPTIX_CHECK(optixPipelineCreate(
         optix_context, &pipeline_compile_options, &pipeline_link_options,
         program_groups, sizeof(program_groups) / sizeof(program_groups[0]),
@@ -405,4 +404,5 @@ OptixAabb RTXDataHolder::read_volume_mesh(const std::string &vol_filename,
     aabb.maxY = std::max(aabb.maxY, vertex.y);
     aabb.maxZ = std::max(aabb.maxZ, vertex.z);
   }
+  return aabb;
 }

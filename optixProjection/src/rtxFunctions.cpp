@@ -126,7 +126,6 @@ void RTXDataHolder::linkPipeline() {
   // recursive trace.
   pipeline_link_options.maxTraceDepth = 1;
   pipeline_link_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_NONE;
-  pipeline_link_options.overrideUsesMotionBlur = 0;
   OPTIX_CHECK(optixPipelineCreate(
       optix_context, &pipeline_compile_options, &pipeline_link_options,
       program_groups, sizeof(program_groups) / sizeof(program_groups[0]),
