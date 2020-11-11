@@ -167,7 +167,7 @@ int main(int argc, char *argv[]) try {
               << std::right << timer.get_elapsed_s() << "s\n";
     std::cout << std::setw(32) << std::left
               << "rays per second: " << std::setw(12) << std::right
-              << num_centers / timer.get_elapsed_s() << "\n\n";
+              << N_rays / timer.get_elapsed_s() << "\n\n";
   }
 
   // For dumping a csv file with the final particle positions
