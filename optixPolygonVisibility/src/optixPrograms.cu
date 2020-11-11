@@ -60,11 +60,11 @@ extern "C" __global__ void __raygen__launch360(void) {
 
   float const t_value_to_hit = __uint_as_float(p0);
   // printf("Hit tmax for ray %d is %f\n", ray_id, t_value_to_hit);
+  // Store the distance to hit point.
   params.hit_tmax[ray_id] = t_value_to_hit;
 }
 
 extern "C" __global__ void __closesthit__hit360(void) {
   float const tmax = optixGetRayTmax();
-
   optixSetPayload_0(__float_as_uint(tmax));
 }
