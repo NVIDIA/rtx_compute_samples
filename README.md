@@ -42,6 +42,11 @@ This sample reads a simple 3D volume. The purpose here is to collect values when
 
 This sample reads a simple obj file to create a geometry. It then creates a list of particles with positions inside or around the geomtery and random velocity values. Using particle positions as the center of a ray and direction along the velocity, rays are then shot with infinite length. If a ray hits some geometry, then the distance between the position of the particle and geometry is recorded.
 
+# optixPolygonVisibility #
+ **Doing Visibility Test around a Point of Interest in 2D space**
+
+ This sample create N random triangles in 2D plane between a user provided min and max value. After that it raises the 2D polygons to 3D by adding a small delta in Z dimension. This is required to build Optix BVH. Hence each edge of a triangle in 2D gets converted to 2 triangles in 3D. The program then randomly selects M center point in the above 2D plane and fires 360 rays per each sample point i.e., 1 degree sampling. If a ray hits some geometry the distance between the ray origin and the hit point is store. The user can modify the code to do other calculation upon hits. This program can be extended to do polygon visibility test in 3D as well.
+
 # Building
 
 Use CMake (>=3.5) for building. 
