@@ -171,8 +171,8 @@ int main(int argc, char *argv[]) try {
   }
 
   // For dumping a csv file with the final particle positions
-  if (argc > 2) {
-    std::string csv_path{argv[2]};
+  if (argc > 3) {
+    std::string csv_path{argv[3]};
 
     // Copy particle positions from device back to host
     std::vector<float> hit_tmax;
