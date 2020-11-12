@@ -49,7 +49,8 @@ This sample reads a simple obj file to create a geometry. It then creates a list
 
 # Building
 
-Use CMake (>=3.5) for building. 
+Use CMake (>=3.5) for building.
+Requires CUDA 8.0 or higher and Optix 7.1 or higher
 
 ```
 mkdir build && cd build
