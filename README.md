@@ -1,4 +1,4 @@
-# Overview
+# Overview - RTX for Compute
 The purpose of these code examples is to show how to use ray tracing for computations and discuss some application patterns that could benefit from ray tracing frameworks. These samples do not perform any graphical rendering. The individual samples are described below.
 
 Prior knowledge of basic ray tracing terminology is required. However, in-depth knowledge and experience with ray tracing is not needed.
