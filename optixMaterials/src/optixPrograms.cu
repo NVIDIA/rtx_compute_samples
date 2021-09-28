@@ -86,12 +86,18 @@ extern "C" __global__ void __closesthit__prog_planes() {
   unsigned int tri_id = optixGetPrimitiveIndex();
   // We defined out geometry as a triangle geometry. In this case the
   // We add the t value of the intersection
-  float ray_tmax = optixGetRayTmax();
+ 
 
   unsigned int ray_id_payload = optixGetPayload_0();
 
- // printf( " hit planes\n" );
+  float ray_tmax =  optixGetRayTmax();
+ float3 ray_dir = optixGetWorldRayDirection();
+  float3 ray_origin = optixGetWorldRayOrigin();
+  float3 hit_point = ray_origin + ray_tmax * ray_dir;
+
+  printf( " hit planes at ( %f, %f, %f ) \n",hit_point.x,hit_point.y,hit_point.z );
  
+
   atomicAdd(&params.planeHitCounter[0], 1);
 }
 
@@ -101,10 +107,16 @@ extern "C" __global__ void __closesthit__prog_sphere() {
   unsigned int tri_id = optixGetPrimitiveIndex();
   // We defined out geometry as a triangle geometry. In this case the
   // We add the t value of the intersection
-  float ray_tmax = optixGetRayTmax();
+ 
 
   unsigned int ray_id_payload = optixGetPayload_0();
-  //printf( " hit sphere \n" );
+  float ray_tmax =  optixGetRayTmax();
+
+  float3 ray_dir = optixGetWorldRayDirection();
+  float3 ray_origin = optixGetWorldRayOrigin();
+  float3 hit_point = ray_origin + ray_tmax * ray_dir;
+
+  printf( " hit sphere at ( %f, %f, %f ) \n",hit_point.x,hit_point.y,hit_point.z );
   atomicAdd(&params.sphereHitCounter[0], 1);
 
 }

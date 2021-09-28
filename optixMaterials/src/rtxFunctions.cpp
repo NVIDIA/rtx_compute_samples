@@ -67,13 +67,13 @@ void RTXDataHolder::createModule(const std::string ptx_filename) {
       OPTIX_COMPILE_DEFAULT_MAX_REGISTER_COUNT;
   module_compile_options.optLevel = OPTIX_COMPILE_OPTIMIZATION_LEVEL_3;
   module_compile_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_NONE;
-
+ 
   pipeline_compile_options.usesMotionBlur = 0;
   pipeline_compile_options.traversableGraphFlags =
       OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_GAS;
   pipeline_compile_options.numPayloadValues = 2;
   pipeline_compile_options.numAttributeValues = 2;
-  pipeline_compile_options.exceptionFlags = OPTIX_EXCEPTION_FLAG_NONE;
+  pipeline_compile_options.exceptionFlags = OPTIX_EXCEPTION_FLAG_DEBUG;
   pipeline_compile_options.pipelineLaunchParamsVariableName = "params";
 
   OPTIX_CHECK(optixModuleCreateFromPTX(optix_context, &module_compile_options,
@@ -119,7 +119,7 @@ void RTXDataHolder::createProgramGroups() {
   hitgroup_prog_group_desc_sphere.hitgroup.entryFunctionNameAH = nullptr;
 
   hitgroup_prog_groups.resize(2);
-  OptixProgramGroupDesc hitgroup_prog_group_descs[2] = {hitgroup_prog_group_desc_plane, hitgroup_prog_group_desc_sphere} ;
+  OptixProgramGroupDesc hitgroup_prog_group_descs[] = {hitgroup_prog_group_desc_plane, hitgroup_prog_group_desc_sphere} ;
   OPTIX_CHECK(optixProgramGroupCreate(optix_context, hitgroup_prog_group_descs,
                                       2, // num program groups
                                       &program_group_options, nullptr, nullptr,
@@ -135,7 +135,7 @@ void RTXDataHolder::linkPipeline() {
   OptixPipelineLinkOptions pipeline_link_options = {};
   // This controls recursive depth of ray tracing. In this example we set to the
   // max bounce parameter
-  pipeline_link_options.maxTraceDepth = MAX_BOUNCE;
+  pipeline_link_options.maxTraceDepth = 1;
   pipeline_link_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_NONE;
   OPTIX_CHECK(optixPipelineCreate(
       optix_context, &pipeline_compile_options, &pipeline_link_options,
@@ -185,6 +185,7 @@ OptixAabb
 RTXDataHolder::buildAccelerationStructure( std::vector<std::vector<std::string>>& filesPerBuildInput) {
 
   const int nbuildInputs = filesPerBuildInput.size();
+  std::cout<< " nbuildInputs= " <<nbuildInputs <<std::endl;
 
   std::vector<float3*> d_vertices(nbuildInputs);
   std::vector<void*>   d_triangles(nbuildInputs);
@@ -282,7 +283,7 @@ RTXDataHolder::buildAccelerationStructure( std::vector<std::vector<std::string>>
    for ( int buildInputId = 0; buildInputId<nbuildInputs; ++buildInputId)
   {
      CUDA_CHECK(cudaFree(d_vertices[buildInputId]));
- //    CUDA_CHECK(cudaFree(d_triangles[buildInputId]));
+ CUDA_CHECK(cudaFree(d_triangles[buildInputId]));
   }
 
   size_t compacted_gas_size;

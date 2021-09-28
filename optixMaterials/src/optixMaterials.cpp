@@ -52,8 +52,8 @@ uint32_t depth = 1u;
 
 int main(int argc, char **argv) {
 
-  // std::vector<std::vector<std::string>> buildInputsFileName = { {"planes0", "planes1"},  {"sphere"} };
- std::vector<std::vector<std::string>> buildInputsFileName = { {"planes0", "planes1" ,  "sphere" }};
+  std::vector<std::vector<std::string>> buildInputsFileName = { {"planes0", "planes1"},  {"sphere"} };
+
   for(int i= 0; i< buildInputsFileName.size() ; ++i ){
     for( int j = 0 ; j< buildInputsFileName[i].size(); ++j) {
       std::string obj_file = OBJ_DIR "" + buildInputsFileName[i][j] + ".obj";
