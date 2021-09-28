@@ -63,7 +63,7 @@ extern "C" __global__ void __raygen__prog() {
   OptixVisibilityMask visibilityMask = 255;
   unsigned int rayFlags = OPTIX_RAY_FLAG_DISABLE_ANYHIT;
   unsigned int SBToffset = 0;
-  unsigned int SBTstride = 0;
+  unsigned int SBTstride = 1;
   unsigned int missSBTIndex = 0;
 
   // Extract Payload as unsigned int
@@ -82,7 +82,7 @@ extern "C" __global__ void __raygen__prog() {
   params.tpath[pld.ray_id] = pld.tpath;
 }
 
-extern "C" __global__ void __closesthit__prog() {
+extern "C" __global__ void __closesthit__prog_planes() {
   unsigned int tri_id = optixGetPrimitiveIndex();
   // We defined out geometry as a triangle geometry. In this case the
   // We add the t value of the intersection
@@ -90,7 +90,26 @@ extern "C" __global__ void __closesthit__prog() {
 
   unsigned int ray_id_payload = optixGetPayload_0();
 
+ // printf( " hit planes\n" );
+ 
+  atomicAdd(&params.planeHitCounter[0], 1);
 }
+
+
+
+extern "C" __global__ void __closesthit__prog_sphere() {
+  unsigned int tri_id = optixGetPrimitiveIndex();
+  // We defined out geometry as a triangle geometry. In this case the
+  // We add the t value of the intersection
+  float ray_tmax = optixGetRayTmax();
+
+  unsigned int ray_id_payload = optixGetPayload_0();
+  //printf( " hit sphere \n" );
+  atomicAdd(&params.sphereHitCounter[0], 1);
+
+}
+
+
 
 // extern "C" __global__ void __miss__prog() {}
 // extern "C" __global__ void __anyhit__prog() {}

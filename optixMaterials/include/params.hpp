@@ -50,4 +50,7 @@ struct Params {
   float3 delta;
   float3 min_corner;
   unsigned int width, height, depth;
+
+  unsigned int * planeHitCounter;
+ unsigned int* sphereHitCounter;
 };

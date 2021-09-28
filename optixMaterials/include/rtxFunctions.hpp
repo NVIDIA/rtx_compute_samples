@@ -33,8 +33,9 @@
 #include <iomanip>
 #include <iostream>
 #include <iterator>
-#include <string>
-#include <vector>
+#include<map>
+#include<vector>
+#include<string>
 
 #include <cuda_runtime.h>
 #include <optix.h>
@@ -64,7 +65,7 @@ struct RTXDataHolder {
   OptixShaderBindingTable sbt = {};
   OptixProgramGroup raygen_prog_group = nullptr;
   OptixProgramGroup miss_prog_group = nullptr;
-  OptixProgramGroup hitgroup_prog_group = nullptr;
+  std::vector<OptixProgramGroup> hitgroup_prog_groups;
   OptixPipeline pipeline = nullptr;
   unsigned int *d_counter;
   int Nrays;
@@ -76,12 +77,11 @@ struct RTXDataHolder {
   void createProgramGroups();
   void linkPipeline();
   void buildSBT();
-  OptixAabb buildAccelerationStructure(const std::string obj_filename,
-                                       std::vector<float3> &vertices,
-                                       std::vector<uint3> &triangles);
+  OptixAabb buildAccelerationStructure( std::vector<std::vector<std::string>>& filesPerBuildInput );
   void setStream(const cudaStream_t &stream_in);
   ~RTXDataHolder();
-  OptixAabb read_obj_mesh(const std::string &obj_filename,
+  void read_obj_mesh(const std::string &obj_filename,
                           std::vector<float3> &vertices,
-                          std::vector<uint3> &triangles);
+                          std::vector<uint3> &triangles,
+                          OptixAabb& aabb);
 };

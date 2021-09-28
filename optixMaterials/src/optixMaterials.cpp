@@ -34,12 +34,13 @@
 #include "params.hpp"
 #include "rtxFunctions.hpp"
 
+
 RTXDataHolder *rtx_dataholder;
 
 // small problem for debugging
 uint32_t width = 8u;  // buffer size x
 uint32_t height = 8u; // buffer size y
-uint32_t depth = 8u;
+uint32_t depth = 1u;
 
 // fits on a single screen
 // uint32_t height = 32u; // buffer size y
@@ -50,9 +51,17 @@ uint32_t depth = 8u;
 // uint32_t  width  = 10000u;   // buffer size x
 
 int main(int argc, char **argv) {
-  std::string testfile = "sphereAndPlane";
-  std::string obj_file = OBJ_DIR "./" + testfile + ".obj";
-  std::cout << "Mesh file = " << obj_file << std::endl;
+
+  // std::vector<std::vector<std::string>> buildInputsFileName = { {"planes0", "planes1"},  {"sphere"} };
+ std::vector<std::vector<std::string>> buildInputsFileName = { {"planes0", "planes1" ,  "sphere" }};
+  for(int i= 0; i< buildInputsFileName.size() ; ++i ){
+    for( int j = 0 ; j< buildInputsFileName[i].size(); ++j) {
+      std::string obj_file = OBJ_DIR "" + buildInputsFileName[i][j] + ".obj";
+      buildInputsFileName[i][j] = obj_file;
+      std::cout << "Adding mesh file = " << obj_file << " to buildInput "<< i << std::endl;
+      }
+  }
+ 
   std::string ptx_filename = BUILD_DIR "/ptx/optixPrograms.ptx";
 
   cudaStream_t stream;
@@ -70,11 +79,9 @@ int main(int argc, char **argv) {
   std::cout << "Building Shader Binding Table (SBT) \n";
   rtx_dataholder->buildSBT();
 
-  std::vector<float3> vertices;
-  std::vector<uint3> triangles;
+ 
   std::cout << "Building Acceleration Structure \n";
-  OptixAabb aabb_box =
-      rtx_dataholder->buildAccelerationStructure(obj_file, vertices, triangles);
+  OptixAabb aabb_box = rtx_dataholder->buildAccelerationStructure(buildInputsFileName);
 
   // calculate delta
   float3 delta = make_float3((aabb_box.maxX - aabb_box.minX) / width,
@@ -85,6 +92,16 @@ int main(int argc, char **argv) {
   float *d_tpath;
   CUDA_CHECK(cudaMalloc((void **)&d_tpath, width * height * sizeof(float)));
 
+    uint32_t *d_planeHits;
+  CUDA_CHECK(cudaMalloc((void **)&d_planeHits, 1* sizeof(uint32_t)));
+  CUDA_CHECK(cudaMemset(d_planeHits, 0,1*sizeof(uint32_t)));
+
+  uint32_t *d_sphereHits;
+  CUDA_CHECK(cudaMalloc((void **)&d_sphereHits, 1* sizeof(uint32_t)));
+  CUDA_CHECK(cudaMemset(d_sphereHits, 0,1*sizeof(uint32_t)));
+
+
+
   // Algorithmic parameters and data pointers used in GPU program
   Params params;
   params.min_corner = min_corner;
@@ -93,7 +110,10 @@ int main(int argc, char **argv) {
   params.width = width;
   params.height = height;
   params.depth = depth;
-  params.tpath = d_tpath;
+  params.tpath = d_tpath; 
+  params.sphereHitCounter =  d_sphereHits;
+  params.planeHitCounter =  d_planeHits;
+
 
   Params *d_param;
   CUDA_CHECK(cudaMalloc((void **)&d_param, sizeof(Params)));
@@ -105,13 +125,24 @@ int main(int argc, char **argv) {
   std::cout << "Launching Ray Tracer to scatter rays \n";
   OPTIX_CHECK(optixLaunch(rtx_dataholder->pipeline, stream,
                           reinterpret_cast<CUdeviceptr>(d_param),
-                          sizeof(Params), &sbt, width, height, 1));
+                          sizeof(Params), &sbt, width, height, depth));
 
   CUDA_CHECK(cudaDeviceSynchronize());
+
+    uint32_t sphereHits = 0;
+  CUDA_CHECK(cudaMemcpy(&sphereHits, d_sphereHits , 1*sizeof(uint32_t), cudaMemcpyDeviceToHost));
+
+
+  uint32_t planeHits = 0;
+  CUDA_CHECK(cudaMemcpy(&planeHits, d_planeHits , 1*sizeof(uint32_t), cudaMemcpyDeviceToHost));
+ 
+  std::cout<< " launched  "<< width*height << " rays from corner ("<< min_corner.x << "," << min_corner.y<<"," << min_corner.z<<   ") of which " << sphereHits << " ray hit the sphere and "<< planeHits << " ray hit the planes  \n";
 
   std::cout << "Cleaning up ... \n";
   CUDA_CHECK(cudaFree(d_tpath));
   CUDA_CHECK(cudaFree(d_param));
+  CUDA_CHECK(cudaFree(d_planeHits));
+  CUDA_CHECK(cudaFree(d_sphereHits));
   delete rtx_dataholder;
 
   return 0;
