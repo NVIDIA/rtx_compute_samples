@@ -33,9 +33,7 @@
 
 #include <optix.h>
 #include <optix_function_table_definition.h>
-
-#include "maxBounce.h"
-
+ 
 #include "common/common.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION
@@ -119,7 +117,10 @@ void RTXDataHolder::createProgramGroups() {
   hitgroup_prog_group_desc_sphere.hitgroup.entryFunctionNameAH = nullptr;
 
   hitgroup_prog_groups.resize(2);
-  OptixProgramGroupDesc hitgroup_prog_group_descs[] = {hitgroup_prog_group_desc_plane, hitgroup_prog_group_desc_sphere} ;
+  OptixProgramGroupDesc hitgroup_prog_group_descs[2] ;
+  hitgroup_prog_group_descs[PLANE] = hitgroup_prog_group_desc_plane;
+  hitgroup_prog_group_descs[SPHERE] = hitgroup_prog_group_desc_sphere;
+   
   OPTIX_CHECK(optixProgramGroupCreate(optix_context, hitgroup_prog_group_descs,
                                       2, // num program groups
                                       &program_group_options, nullptr, nullptr,
@@ -129,7 +130,7 @@ void RTXDataHolder::createProgramGroups() {
 void RTXDataHolder::linkPipeline() {
 
   std::vector<OptixProgramGroup> program_groups = {raygen_prog_group, miss_prog_group,
-                                        hitgroup_prog_groups[0], hitgroup_prog_groups[1]};
+                                        hitgroup_prog_groups[PLANE], hitgroup_prog_groups[SPHERE]};
 
 
   OptixPipelineLinkOptions pipeline_link_options = {};
@@ -164,10 +165,8 @@ void RTXDataHolder::buildSBT() {
   std::vector<HitGroupSbtRecord> hgSBT( hitgroupSbtRecordSize );
   void *hitgroupSbtRecord;
   CUDA_CHECK(cudaMalloc((void **)&hitgroupSbtRecord, hitgroupSbtRecordSize*sizeof(HitGroupSbtRecord)));
-
-  OPTIX_CHECK(optixSbtRecordPackHeader(hitgroup_prog_groups[0], &hgSBT[0]));
-
-  OPTIX_CHECK(optixSbtRecordPackHeader(hitgroup_prog_groups[1], &hgSBT[1]));
+  OPTIX_CHECK(optixSbtRecordPackHeader(hitgroup_prog_groups[PLANE], &hgSBT[PLANE]));
+  OPTIX_CHECK(optixSbtRecordPackHeader(hitgroup_prog_groups[SPHERE], &hgSBT[SPHERE]));
 
   CUDA_CHECK(cudaMemcpy(hitgroupSbtRecord, &hgSBT[0], hitgroupSbtRecordSize*sizeof(HitGroupSbtRecord),
                         cudaMemcpyHostToDevice));
@@ -185,8 +184,6 @@ OptixAabb
 RTXDataHolder::buildAccelerationStructure( std::vector<std::vector<std::string>>& filesPerBuildInput) {
 
   const int nbuildInputs = filesPerBuildInput.size();
-  std::cout<< " nbuildInputs= " <<nbuildInputs <<std::endl;
-
   std::vector<float3*> d_vertices(nbuildInputs);
   std::vector<void*>   d_triangles(nbuildInputs);
 

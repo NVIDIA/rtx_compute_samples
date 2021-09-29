@@ -29,8 +29,7 @@
 #include <iostream>
 
 #include "common/common.h"
-
-#include "maxBounce.h"
+ 
 #include "params.hpp"
 #include "rtxFunctions.hpp"
 
@@ -79,7 +78,6 @@ int main(int argc, char **argv) {
   std::cout << "Building Shader Binding Table (SBT) \n";
   rtx_dataholder->buildSBT();
 
- 
   std::cout << "Building Acceleration Structure \n";
   OptixAabb aabb_box = rtx_dataholder->buildAccelerationStructure(buildInputsFileName);
 
@@ -89,19 +87,10 @@ int main(int argc, char **argv) {
                              (aabb_box.maxZ - aabb_box.minZ) / depth);
   float3 min_corner = make_float3(aabb_box.minX, aabb_box.minY, aabb_box.minZ);
 
-  float *d_tpath;
-  CUDA_CHECK(cudaMalloc((void **)&d_tpath, width * height * sizeof(float)));
-
-    uint32_t *d_planeHits;
-  CUDA_CHECK(cudaMalloc((void **)&d_planeHits, 1* sizeof(uint32_t)));
-  CUDA_CHECK(cudaMemset(d_planeHits, 0,1*sizeof(uint32_t)));
-
-  uint32_t *d_sphereHits;
-  CUDA_CHECK(cudaMalloc((void **)&d_sphereHits, 1* sizeof(uint32_t)));
-  CUDA_CHECK(cudaMemset(d_sphereHits, 0,1*sizeof(uint32_t)));
-
-
-
+  uint32_t *d_hits;
+  CUDA_CHECK(cudaMalloc((void **)&d_hits, 3* sizeof(uint32_t)));
+  CUDA_CHECK(cudaMemset(d_hits, 0, 3*sizeof(uint32_t)));
+ 
   // Algorithmic parameters and data pointers used in GPU program
   Params params;
   params.min_corner = min_corner;
@@ -110,15 +99,12 @@ int main(int argc, char **argv) {
   params.width = width;
   params.height = height;
   params.depth = depth;
-  params.tpath = d_tpath; 
-  params.sphereHitCounter =  d_sphereHits;
-  params.planeHitCounter =  d_planeHits;
-
+  params.hitCounter =  d_hits;
+ 
 
   Params *d_param;
   CUDA_CHECK(cudaMalloc((void **)&d_param, sizeof(Params)));
-  CUDA_CHECK(
-      cudaMemcpy(d_param, &params, sizeof(params), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_param, &params, sizeof(params), cudaMemcpyHostToDevice));
 
   const OptixShaderBindingTable &sbt = rtx_dataholder->sbt;
 
@@ -128,21 +114,16 @@ int main(int argc, char **argv) {
                           sizeof(Params), &sbt, width, height, depth));
 
   CUDA_CHECK(cudaDeviceSynchronize());
-
-    uint32_t sphereHits = 0;
-  CUDA_CHECK(cudaMemcpy(&sphereHits, d_sphereHits , 1*sizeof(uint32_t), cudaMemcpyDeviceToHost));
-
-
-  uint32_t planeHits = 0;
-  CUDA_CHECK(cudaMemcpy(&planeHits, d_planeHits , 1*sizeof(uint32_t), cudaMemcpyDeviceToHost));
  
-  std::cout<< " launched  "<< width*height << " rays from corner ("<< min_corner.x << "," << min_corner.y<<"," << min_corner.z<<   ") of which " << sphereHits << " ray hit the sphere and "<< planeHits << " ray hit the planes  \n";
+  uint32_t hits[3];
+  CUDA_CHECK(cudaMemcpy(&hits, params.hitCounter ,3*sizeof(uint32_t), cudaMemcpyDeviceToHost));
+  std::cout<< " launched  "<< width*height << " rays from corner ("<< min_corner.x << "," << min_corner.y<<"," << min_corner.z<<   ") of which " << hits[SPHERE] << " ray hit the sphere and "<< hits[PLANE] << " ray hit the planes and " << hits[MISS] << " missed   \n";
 
   std::cout << "Cleaning up ... \n";
-  CUDA_CHECK(cudaFree(d_tpath));
+
   CUDA_CHECK(cudaFree(d_param));
-  CUDA_CHECK(cudaFree(d_planeHits));
-  CUDA_CHECK(cudaFree(d_sphereHits));
+  CUDA_CHECK(cudaFree(d_hits));
+ 
   delete rtx_dataholder;
 
   return 0;

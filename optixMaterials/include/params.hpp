@@ -40,17 +40,18 @@ struct HitGroupData { // We don't need any Hit Program SBT data for this sample
 struct MissData { // We don't need any MIss Program SBT data for this sample
 };
 
+enum GeometryType:unsigned int {PLANE, SPHERE, MISS};
+
 struct Params {
   // 16 byte aligned variables
   // <none>
   // 8 byte aligned variables
   OptixTraversableHandle handle;
-  float *tpath;
   // 4 byte aligned
   float3 delta;
   float3 min_corner;
   unsigned int width, height, depth;
 
-  unsigned int * planeHitCounter;
- unsigned int* sphereHitCounter;
+  unsigned int *hitCounter;
+ 
 };

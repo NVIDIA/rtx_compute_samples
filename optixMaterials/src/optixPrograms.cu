@@ -32,26 +32,14 @@
 
 extern "C" static __constant__ Params params;
 
-struct Payload {
-  unsigned int ray_id; // unique id of the ray
-  float tpath;         // total lenth of the path with multiple bounces
-};
-
 extern "C" __global__ void __raygen__prog() {
-  const uint3 launch_index = optixGetLaunchIndex();
-  const uint3 launch_dim = optixGetLaunchDimensions();
-
+  const uint3 launch_index = optixGetLaunchIndex(); 
   const float3 &min_corner = params.min_corner;
   const float3 &delta = params.delta;
 
   float xo = min_corner.x + delta.x * launch_index.x;
   float yo = min_corner.y + delta.y * launch_index.y;
   float zo = min_corner.z;
-
-  // setting the per ray data (payload)
-  Payload pld;
-  pld.tpath = 0.0f;
-  pld.ray_id = launch_index.x + launch_dim.x * launch_index.y;
 
   // create a ray
   float3 ray_origin = make_float3(xo, yo, zo);
@@ -67,61 +55,44 @@ extern "C" __global__ void __raygen__prog() {
   unsigned int missSBTIndex = 0;
 
   // Extract Payload as unsigned int
-  unsigned int ray_id_payload = pld.ray_id;
-  unsigned int tpath_payload = __float_as_uint(pld.tpath);
-
+  unsigned int hit_type = MISS;
+ 
   optixTrace(params.handle, ray_origin, ray_direction, tmin, tmax, ray_time,
              visibilityMask, rayFlags, SBToffset, SBTstride, missSBTIndex,
-             ray_id_payload, tpath_payload);
+             hit_type);
 
-  // Store back paylaod to the Payload struct
-  pld.ray_id = ray_id_payload;
-  pld.tpath = __uint_as_float(tpath_payload);
+  atomicAdd(&params.hitCounter[hit_type], 1); 
 
-  // store the result and  number of bounces back to the global buffers
-  params.tpath[pld.ray_id] = pld.tpath;
 }
 
 extern "C" __global__ void __closesthit__prog_planes() {
-  unsigned int tri_id = optixGetPrimitiveIndex();
-  // We defined out geometry as a triangle geometry. In this case the
-  // We add the t value of the intersection
- 
-
-  unsigned int ray_id_payload = optixGetPayload_0();
-
+    
+  //DEBUGGING:
+#ifdef DEBUG_OPTIX
   float ray_tmax =  optixGetRayTmax();
- float3 ray_dir = optixGetWorldRayDirection();
+  float3 ray_dir = optixGetWorldRayDirection();
   float3 ray_origin = optixGetWorldRayOrigin();
   float3 hit_point = ray_origin + ray_tmax * ray_dir;
-
   printf( " hit planes at ( %f, %f, %f ) \n",hit_point.x,hit_point.y,hit_point.z );
- 
+ #endif
 
-  atomicAdd(&params.planeHitCounter[0], 1);
+ optixSetPayload_0(PLANE);
 }
 
 
 
 extern "C" __global__ void __closesthit__prog_sphere() {
-  unsigned int tri_id = optixGetPrimitiveIndex();
-  // We defined out geometry as a triangle geometry. In this case the
-  // We add the t value of the intersection
- 
-
-  unsigned int ray_id_payload = optixGetPayload_0();
+   
+ #ifdef DEBUG_OPTIX
   float ray_tmax =  optixGetRayTmax();
-
   float3 ray_dir = optixGetWorldRayDirection();
   float3 ray_origin = optixGetWorldRayOrigin();
   float3 hit_point = ray_origin + ray_tmax * ray_dir;
-
   printf( " hit sphere at ( %f, %f, %f ) \n",hit_point.x,hit_point.y,hit_point.z );
-  atomicAdd(&params.sphereHitCounter[0], 1);
-
+#endif
+ 
+optixSetPayload_0(SPHERE);
 }
-
-
 
 // extern "C" __global__ void __miss__prog() {}
 // extern "C" __global__ void __anyhit__prog() {}
