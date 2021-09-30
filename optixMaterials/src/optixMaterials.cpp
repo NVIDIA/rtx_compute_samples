@@ -33,7 +33,6 @@
 #include "params.hpp"
 #include "rtxFunctions.hpp"
 
-
 RTXDataHolder *rtx_dataholder;
 
 // small problem for debugging
@@ -51,6 +50,7 @@ uint32_t depth = 1u;
 
 int main(int argc, char **argv) {
 
+// input obj files  inner vector per buildInput: {"planes0", "planes1"} -> buildinput 0,  {"sphere"} -> buildinput 1
   std::vector<std::vector<std::string>> buildInputsFileName = { {"planes0", "planes1"},  {"sphere"} };
 
   for(int i= 0; i< buildInputsFileName.size() ; ++i ){
@@ -67,6 +67,7 @@ int main(int argc, char **argv) {
   CUDA_CHECK(cudaStreamCreate(&stream));
 
   rtx_dataholder = new RTXDataHolder();
+  rtx_dataholder -> setStream(stream);
   std::cout << "Initializing Context \n";
   rtx_dataholder->initContext();
   std::cout << "Reading PTX file and creating modules \n";
@@ -114,17 +115,16 @@ int main(int argc, char **argv) {
                           sizeof(Params), &sbt, width, height, depth));
 
   CUDA_CHECK(cudaDeviceSynchronize());
- 
+  const float nrays = width*height*depth;
   uint32_t hits[3];
   CUDA_CHECK(cudaMemcpy(&hits, params.hitCounter ,3*sizeof(uint32_t), cudaMemcpyDeviceToHost));
-  std::cout<< " launched  "<< width*height << " rays from corner ("<< min_corner.x << "," << min_corner.y<<"," << min_corner.z<<   ") of which " << hits[SPHERE] << " ray hit the sphere and "<< hits[PLANE] << " ray hit the planes and " << hits[MISS] << " missed   \n";
+  std::cout<< "Result: Launched  "<< nrays     <<" rays of which " << hits[SPHERE]/( nrays-hits[MISS] )*100.0 << "% of ray hits hit the sphere and "<< hits[PLANE]/( nrays-hits[MISS] )*100.0  << "% of ray hits hit the planes and " << hits[MISS]/( nrays )*100.0 << "% of rays missed   \n";
 
   std::cout << "Cleaning up ... \n";
-
   CUDA_CHECK(cudaFree(d_param));
   CUDA_CHECK(cudaFree(d_hits));
- 
   delete rtx_dataholder;
+  CUDA_CHECK(cudaStreamDestroy(stream));
 
   return 0;
 }

@@ -51,16 +51,18 @@ extern "C" __global__ void __raygen__prog() {
   OptixVisibilityMask visibilityMask = 255;
   unsigned int rayFlags = OPTIX_RAY_FLAG_DISABLE_ANYHIT;
   unsigned int SBToffset = 0;
+  //setting offset to next CH programm, when 0 both use first (PLANE) one
   unsigned int SBTstride = 1;
   unsigned int missSBTIndex = 0;
 
-  // Extract Payload as unsigned int
   unsigned int hit_type = MISS;
  
+  //tracing ray
   optixTrace(params.handle, ray_origin, ray_direction, tmin, tmax, ray_time,
              visibilityMask, rayFlags, SBToffset, SBTstride, missSBTIndex,
              hit_type);
 
+  //increment counter of according hit type (planes, sphere or miss)
   atomicAdd(&params.hitCounter[hit_type], 1); 
 
 }

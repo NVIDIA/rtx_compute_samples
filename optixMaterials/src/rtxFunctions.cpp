@@ -69,7 +69,7 @@ void RTXDataHolder::createModule(const std::string ptx_filename) {
   pipeline_compile_options.usesMotionBlur = 0;
   pipeline_compile_options.traversableGraphFlags =
       OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_GAS;
-  pipeline_compile_options.numPayloadValues = 2;
+  pipeline_compile_options.numPayloadValues = 1;
   pipeline_compile_options.numAttributeValues = 2;
   pipeline_compile_options.exceptionFlags = OPTIX_EXCEPTION_FLAG_DEBUG;
   pipeline_compile_options.pipelineLaunchParamsVariableName = "params";
@@ -102,13 +102,15 @@ void RTXDataHolder::createProgramGroups() {
                                       &program_group_options, nullptr, nullptr,
                                       &miss_prog_group));
 
+//creating hitgroup_prog_group_desc_plane for plane CH
   OptixProgramGroupDesc hitgroup_prog_group_desc_plane = {}; // Hit group programs
   hitgroup_prog_group_desc_plane.kind = OPTIX_PROGRAM_GROUP_KIND_HITGROUP;
   hitgroup_prog_group_desc_plane.hitgroup.moduleCH = module;
   hitgroup_prog_group_desc_plane.hitgroup.entryFunctionNameCH = "__closesthit__prog_planes";
   hitgroup_prog_group_desc_plane.hitgroup.moduleAH = nullptr;
   hitgroup_prog_group_desc_plane.hitgroup.entryFunctionNameAH = nullptr;
- 
+
+//creating hitgroup_prog_group_desc_plane for sphere CH
   OptixProgramGroupDesc hitgroup_prog_group_desc_sphere = {}; // Hit group programs
   hitgroup_prog_group_desc_sphere.kind = OPTIX_PROGRAM_GROUP_KIND_HITGROUP;
   hitgroup_prog_group_desc_sphere.hitgroup.moduleCH = module;
@@ -120,7 +122,8 @@ void RTXDataHolder::createProgramGroups() {
   OptixProgramGroupDesc hitgroup_prog_group_descs[2] ;
   hitgroup_prog_group_descs[PLANE] = hitgroup_prog_group_desc_plane;
   hitgroup_prog_group_descs[SPHERE] = hitgroup_prog_group_desc_sphere;
-   
+  
+  // create hitgroup_prog_groups from hitgroup_prog_group_descs
   OPTIX_CHECK(optixProgramGroupCreate(optix_context, hitgroup_prog_group_descs,
                                       2, // num program groups
                                       &program_group_options, nullptr, nullptr,
@@ -134,8 +137,6 @@ void RTXDataHolder::linkPipeline() {
 
 
   OptixPipelineLinkOptions pipeline_link_options = {};
-  // This controls recursive depth of ray tracing. In this example we set to the
-  // max bounce parameter
   pipeline_link_options.maxTraceDepth = 1;
   pipeline_link_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_NONE;
   OPTIX_CHECK(optixPipelineCreate(
@@ -161,27 +162,27 @@ void RTXDataHolder::buildSBT() {
   CUDA_CHECK(cudaMemcpy(missSbtRecord, &msSBT, missSbtRecordSize,
                         cudaMemcpyHostToDevice));
 
+// loading both hitgroups onto device
   const size_t  hitgroupSbtRecordSize = 2;
   std::vector<HitGroupSbtRecord> hgSBT( hitgroupSbtRecordSize );
-  void *hitgroupSbtRecord;
-  CUDA_CHECK(cudaMalloc((void **)&hitgroupSbtRecord, hitgroupSbtRecordSize*sizeof(HitGroupSbtRecord)));
+  void *hitgroupSbtRecords;
+  CUDA_CHECK(cudaMalloc((void **)&hitgroupSbtRecords, hitgroupSbtRecordSize*sizeof(HitGroupSbtRecord)));
   OPTIX_CHECK(optixSbtRecordPackHeader(hitgroup_prog_groups[PLANE], &hgSBT[PLANE]));
   OPTIX_CHECK(optixSbtRecordPackHeader(hitgroup_prog_groups[SPHERE], &hgSBT[SPHERE]));
-
-  CUDA_CHECK(cudaMemcpy(hitgroupSbtRecord, &hgSBT[0], hitgroupSbtRecordSize*sizeof(HitGroupSbtRecord),
+  CUDA_CHECK(cudaMemcpy(hitgroupSbtRecords, &hgSBT[0], hitgroupSbtRecordSize*sizeof(HitGroupSbtRecord),
                         cudaMemcpyHostToDevice));
 
   sbt.raygenRecord = reinterpret_cast<CUdeviceptr>(raygenRecord);
   sbt.missRecordBase = reinterpret_cast<CUdeviceptr>(missSbtRecord);
   sbt.missRecordStrideInBytes = sizeof(MissSbtRecord);
   sbt.missRecordCount = 1;
-  sbt.hitgroupRecordBase = reinterpret_cast<CUdeviceptr>(hitgroupSbtRecord);
+  sbt.hitgroupRecordBase = reinterpret_cast<CUdeviceptr>(hitgroupSbtRecords);
   sbt.hitgroupRecordStrideInBytes = sizeof(HitGroupSbtRecord);
-  sbt.hitgroupRecordCount = hitgroupSbtRecordSize;
+  sbt.hitgroupRecordCount = hitgroupSbtRecordSize; //2
 }
 
 OptixAabb
-RTXDataHolder::buildAccelerationStructure( std::vector<std::vector<std::string>>& filesPerBuildInput) {
+RTXDataHolder::buildAccelerationStructure(std::vector<std::vector<std::string>>& filesPerBuildInput) {
 
   const int nbuildInputs = filesPerBuildInput.size();
   std::vector<float3*> d_vertices(nbuildInputs);
@@ -194,7 +195,7 @@ RTXDataHolder::buildAccelerationStructure( std::vector<std::vector<std::string>>
   aabb.minX = aabb.minY = aabb.minZ = std::numeric_limits<float>::max();
   aabb.maxX = aabb.maxY = aabb.maxZ = -std::numeric_limits<float>::max();
 
-
+// n total triangels
   unsigned long ntriangles = 0;
   for ( int buildInputId = 0; buildInputId<nbuildInputs; ++buildInputId)
   {
@@ -225,26 +226,23 @@ RTXDataHolder::buildAccelerationStructure( std::vector<std::vector<std::string>>
     triangle_input[buildInputId].triangleArray.numVertices =  static_cast<unsigned int>(vertices.size());
     triangle_input[buildInputId].triangleArray.vertexBuffers = reinterpret_cast<CUdeviceptr *>(&d_vertices[buildInputId]);
     triangle_input[buildInputId].triangleArray.flags = &triangle_input_flags[buildInputId];
-    triangle_input[buildInputId].triangleArray.numSbtRecords = 1;
+    triangle_input[buildInputId].triangleArray.numSbtRecords = 1; //using one per build input
     triangle_input[buildInputId].triangleArray.indexFormat = OPTIX_INDICES_FORMAT_UNSIGNED_INT3;
     triangle_input[buildInputId].triangleArray.numIndexTriplets =   static_cast<unsigned int>(triangles.size());
     triangle_input[buildInputId].triangleArray.indexBuffer = reinterpret_cast<CUdeviceptr>(d_triangles[buildInputId]);
 
   }
 
-  std::cout << "total number of  triangles "<< ntriangles << std::endl; 
-
+  std::cout << "Total number of  triangles "<< ntriangles << std::endl; 
   
   OptixAccelBuildOptions accel_options = {};
-  // RANDOM VERTEX ACCESS flag allows access to triangle vertices while Ray
-  // Tracing
   accel_options.buildFlags = OPTIX_BUILD_FLAG_ALLOW_COMPACTION;
   accel_options.operation = OPTIX_BUILD_OPERATION_BUILD;
 
   OptixAccelBufferSizes gas_buffer_sizes;
   OPTIX_CHECK(optixAccelComputeMemoryUsage(optix_context, &accel_options,
                                            triangle_input.data(),
-                                           nbuildInputs, // Number of build input
+                                           nbuildInputs, // Number of build inputs =2 
                                            &gas_buffer_sizes));
   void *d_temp_buffer_gas;
   CUDA_CHECK(cudaMalloc(&d_temp_buffer_gas, gas_buffer_sizes.tempSizeInBytes));
@@ -263,9 +261,9 @@ RTXDataHolder::buildAccelerationStructure( std::vector<std::vector<std::string>>
                     compactedSizeOffset);
 
   OPTIX_CHECK(optixAccelBuild(optix_context,
-                              0, // CUDA stream
+                              this->stream, // CUDA stream
                               &accel_options,  triangle_input.data(),
-                              nbuildInputs, // num build inputs
+                              nbuildInputs, // num build inputs =2 
                               reinterpret_cast<CUdeviceptr>(d_temp_buffer_gas),
                               gas_buffer_sizes.tempSizeInBytes,
                               reinterpret_cast<CUdeviceptr>(
@@ -312,8 +310,8 @@ RTXDataHolder::~RTXDataHolder() {
   OPTIX_CHECK(optixPipelineDestroy(pipeline));
   OPTIX_CHECK(optixProgramGroupDestroy(raygen_prog_group));
   OPTIX_CHECK(optixProgramGroupDestroy(miss_prog_group));
-  OPTIX_CHECK(optixProgramGroupDestroy(hitgroup_prog_groups[0]));
-  OPTIX_CHECK(optixProgramGroupDestroy(hitgroup_prog_groups[1]));
+  OPTIX_CHECK(optixProgramGroupDestroy(hitgroup_prog_groups[PLANE]));
+  OPTIX_CHECK(optixProgramGroupDestroy(hitgroup_prog_groups[SPHERE]));
   OPTIX_CHECK(optixModuleDestroy(module));
 }
 
