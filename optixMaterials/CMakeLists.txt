@@ -24,53 +24,17 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-cmake_minimum_required(VERSION 3.17)
-project (RTXComputeSamples LANGUAGES CXX CUDA)
-
-# Set default build type to 'Release'
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Release" CACHE STRING
-      "Choose the type of build, options are: Debug Release
-RelWithDebInfo MinSizeRel."
-      FORCE)
-endif(NOT CMAKE_BUILD_TYPE)
-
-# add path to our CMake modules
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMake")
-
-# turn on C++14
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# We use this to be able to link against CUDA::cudart and/or CUDA::cuda_driver
-find_package(CUDAToolkit REQUIRED)
-
-# Make sure we have access to Optix7
-find_package(OptiX7 REQUIRED)
-include_directories(${OptiX7_INCLUDE_DIRS})
+project (optixMaterials LANGUAGES CXX CUDA)
+include_directories(./include)
 
 # ==============================================================================
-# Utility function to get PTX compilation & copying working
+# Main Executable
 # ==============================================================================
-include(PTXUtilities)
-
-# for common headers
-include_directories(./)
+add_executable(optixMaterials src/optixMaterials.cpp src/rtxFunctions.cpp ../common/common.cpp)
+target_link_libraries(optixMaterials PRIVATE CUDA::cudart OptiX7)
 
 # ==============================================================================
-# Add Samples
+# Add any needed PTX compilations here
 # ==============================================================================
-add_subdirectory(optixParticleCollision)
-add_subdirectory(optixProjection)
-add_subdirectory(optixRayScattering)
-add_subdirectory(optixSaxpy)
-add_subdirectory(optixMeshRefine)
-add_subdirectory(optixVolumeSampling)
-add_subdirectory(optixPolygonVisibility)
-add_subdirectory(optixMaterials)
-
-# ==============================================================================
-# Copy Resources
-# ==============================================================================
-file(COPY resources DESTINATION .)
+add_ptx_targets(optixMaterials optixPrograms)
 
