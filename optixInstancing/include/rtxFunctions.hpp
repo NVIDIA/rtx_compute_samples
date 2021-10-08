@@ -89,11 +89,12 @@ struct RTXDataHolder {
   void linkPipeline();
   void buildSBT();
   void buildIAS();
-  OptixAabb buildAccelerationStructure(
-     std::vector<std::vector<std::string>> &filesPerBuildInput);
+OptixAabb buildAccelerationStructure(const std::string obj_filename,
+                                          std::vector<float3> &vertices,
+                                          std::vector<uint3> &triangles);
   void setStream(const cudaStream_t &stream_in);
   ~RTXDataHolder();
-  void read_obj_mesh(const std::string &obj_filename,
-                     std::vector<float3> &vertices,
-                     std::vector<uint3> &triangles, OptixAabb &aabb);
+OptixAabb read_obj_mesh(const std::string &obj_filename,
+                                       std::vector<float3> &vertices,
+                                       std::vector<uint3> &triangles) ;
 };

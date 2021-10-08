@@ -68,7 +68,7 @@ extern "C" __global__ void __raygen__prog() {
 }
 
  extern "C" __global__ void __closesthit__prog_sphere() {
-   
+  // #define DEBUG_OPTIX
  #ifdef DEBUG_OPTIX
   float ray_tmax =  optixGetRayTmax();
   float3 ray_dir = optixGetWorldRayDirection();

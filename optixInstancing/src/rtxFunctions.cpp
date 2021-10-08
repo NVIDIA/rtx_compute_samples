@@ -63,16 +63,16 @@ void RTXDataHolder::createModule(const std::string ptx_filename) {
   OptixModuleCompileOptions module_compile_options = {};
   module_compile_options.maxRegisterCount =
       OPTIX_COMPILE_DEFAULT_MAX_REGISTER_COUNT;
-  module_compile_options.optLevel = OPTIX_COMPILE_OPTIMIZATION_LEVEL_3;
+  module_compile_options.optLevel = OPTIX_COMPILE_OPTIMIZATION_DEFAULT;
   module_compile_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_NONE;
 
   pipeline_compile_options.usesMotionBlur = 0;
-  // set this flag to allow instancing AS with geometry AS
-  pipeline_compile_options.traversableGraphFlags =
-      OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_ANY;
+  // set this flag to allow one instancing AS with geometry AS
+  pipeline_compile_options.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_ANY; //OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_LEVEL_INSTANCING ;
+    //  OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_ANY;
   pipeline_compile_options.numPayloadValues = 1;
   pipeline_compile_options.numAttributeValues = 2;
-  pipeline_compile_options.exceptionFlags = OPTIX_EXCEPTION_FLAG_DEBUG;
+  pipeline_compile_options.exceptionFlags = OPTIX_EXCEPTION_FLAG_NONE;
   pipeline_compile_options.pipelineLaunchParamsVariableName = "params";
 
   OPTIX_CHECK(optixModuleCreateFromPTX(optix_context, &module_compile_options,
@@ -117,21 +117,22 @@ void RTXDataHolder::createProgramGroups() {
   OPTIX_CHECK(optixProgramGroupCreate(
       optix_context, &hitgroup_prog_group_desc_sphere,
       1, // num program groups
-      &program_group_options, nullptr, nullptr, &hitgroup_prog_group));
+      &program_group_options, nullptr, nullptr,
+      &hitgroup_prog_group));
 }
 
 void RTXDataHolder::linkPipeline() {
 
-  std::vector<OptixProgramGroup> program_groups = {
-      raygen_prog_group, miss_prog_group, hitgroup_prog_group};
+  OptixProgramGroup program_groups[] = {raygen_prog_group, miss_prog_group,
+                                        hitgroup_prog_group};
 
   OptixPipelineLinkOptions pipeline_link_options = {};
   pipeline_link_options.maxTraceDepth = 1;
   pipeline_link_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_NONE;
-  OPTIX_CHECK(optixPipelineCreate(optix_context, &pipeline_compile_options,
-                                  &pipeline_link_options, program_groups.data(),
-                                  program_groups.size(), nullptr, nullptr,
-                                  &pipeline));
+  OPTIX_CHECK(optixPipelineCreate(
+      optix_context, &pipeline_compile_options, &pipeline_link_options,
+      program_groups, sizeof(program_groups) / sizeof(program_groups[0]),
+      nullptr, nullptr, &pipeline));
 }
 
 void RTXDataHolder::buildSBT() {
@@ -151,26 +152,21 @@ void RTXDataHolder::buildSBT() {
   CUDA_CHECK(cudaMemcpy(missSbtRecord, &msSBT, missSbtRecordSize,
                         cudaMemcpyHostToDevice));
 
-  // loading both hitgroups onto device
-  const size_t hitgroupSbtRecordSize = 1;
+void *hitgroupSbtRecord;
+  size_t hitgroupSbtRecordSize = sizeof(HitGroupSbtRecord);
+  CUDA_CHECK(cudaMalloc((void **)&hitgroupSbtRecord, hitgroupSbtRecordSize));
   HitGroupSbtRecord hgSBT;
-
-  void *hitgroupSbtRecords;
-  CUDA_CHECK(cudaMalloc((void **)&hitgroupSbtRecords,
-                        hitgroupSbtRecordSize * sizeof(HitGroupSbtRecord)));
   OPTIX_CHECK(optixSbtRecordPackHeader(hitgroup_prog_group, &hgSBT));
-
-  CUDA_CHECK(cudaMemcpy(hitgroupSbtRecords, &hgSBT,
-                        hitgroupSbtRecordSize * sizeof(HitGroupSbtRecord),
+  CUDA_CHECK(cudaMemcpy(hitgroupSbtRecord, &hgSBT, hitgroupSbtRecordSize,
                         cudaMemcpyHostToDevice));
 
   sbt.raygenRecord = reinterpret_cast<CUdeviceptr>(raygenRecord);
   sbt.missRecordBase = reinterpret_cast<CUdeviceptr>(missSbtRecord);
   sbt.missRecordStrideInBytes = sizeof(MissSbtRecord);
   sbt.missRecordCount = 1;
-  sbt.hitgroupRecordBase = reinterpret_cast<CUdeviceptr>(hitgroupSbtRecords);
+  sbt.hitgroupRecordBase = reinterpret_cast<CUdeviceptr>(hitgroupSbtRecord);
   sbt.hitgroupRecordStrideInBytes = sizeof(HitGroupSbtRecord);
-  sbt.hitgroupRecordCount = hitgroupSbtRecordSize;
+  sbt.hitgroupRecordCount = 1;
 }
 
 void RTXDataHolder::buildIAS() {
@@ -179,7 +175,7 @@ void RTXDataHolder::buildIAS() {
     OptixInstance inst;
     memcpy(inst.transform, &transforms[i], sizeof(float) * 12);
     inst.instanceId = 0;
-    inst.visibilityMask = 1;
+    inst.visibilityMask = 255;
     inst.sbtOffset = 0;
     inst.flags = OPTIX_INSTANCE_FLAG_NONE;
     inst.traversableHandle = gas_handle;
@@ -222,81 +218,56 @@ void RTXDataHolder::buildIAS() {
       1, // num build inputs
       d_temp_buffer_ias, ias_buffer_sizes.tempSizeInBytes, d_ias_output_buffer,
       ias_buffer_sizes.outputSizeInBytes, &ias_handle, nullptr, 0));
+
+  CUDA_CHECK(cudaDeviceSynchronize());
   CUDA_CHECK(cudaFree(reinterpret_cast<void *>(d_temp_buffer_ias)));
   CUDA_CHECK(cudaFree(reinterpret_cast<void *>(d_inst)));
 }
 
-OptixAabb RTXDataHolder::buildAccelerationStructure(
-    std::vector<std::vector<std::string>> &filesPerBuildInput) {
-
-  const int nbuildInputs = filesPerBuildInput.size();
-  std::vector<float3 *> d_vertices(nbuildInputs);
-  std::vector<void *> d_triangles(nbuildInputs);
-
-  std::vector<OptixBuildInput> triangle_input(nbuildInputs);
-  std::vector<uint32_t> triangle_input_flags(nbuildInputs);
-
+OptixAabb
+RTXDataHolder::buildAccelerationStructure(const std::string obj_filename,
+                                          std::vector<float3> &vertices,
+                                          std::vector<uint3> &triangles) {
   OptixAabb aabb;
-  aabb.minX = aabb.minY = aabb.minZ = std::numeric_limits<float>::max();
-  aabb.maxX = aabb.maxY = aabb.maxZ = -std::numeric_limits<float>::max();
 
-  // n total triangels
-  unsigned long ntriangles = 0;
-  for (int buildInputId = 0; buildInputId < nbuildInputs; ++buildInputId) {
-    std::vector<float3> vertices;
-    std::vector<uint3> triangles;
+  aabb = read_obj_mesh(obj_filename, vertices, triangles);
+  float3 *d_vertices;
+  const size_t vertices_size = sizeof(float3) * vertices.size();
+  CUDA_CHECK(cudaMalloc(&d_vertices, vertices_size));
+  CUDA_CHECK(cudaMemcpy(d_vertices, vertices.data(), vertices_size,
+                        cudaMemcpyHostToDevice));
 
-    for (int meshId = 0; meshId < filesPerBuildInput[buildInputId].size();
-         ++meshId) {
-      read_obj_mesh(filesPerBuildInput[buildInputId][meshId], vertices,
-                    triangles, aabb);
-      assert(vertices.size() > 0 &&
-             "Empty geometry, check .obj file location and content.");
-    }
-    ntriangles += triangles.size();
-    const size_t vertices_size = sizeof(float3) * vertices.size();
-    CUDA_CHECK(cudaMalloc(&d_vertices[buildInputId], vertices_size));
-    CUDA_CHECK(cudaMemcpy(d_vertices[buildInputId], vertices.data(),
-                          vertices_size, cudaMemcpyHostToDevice));
+  const size_t tri_size = sizeof(uint3) * triangles.size();
+  void *d_triangles;
+  CUDA_CHECK(cudaMalloc(&d_triangles, tri_size));
+  CUDA_CHECK(cudaMemcpy(d_triangles, triangles.data(), tri_size,
+                        cudaMemcpyHostToDevice));
 
-    const size_t tri_size = sizeof(uint3) * triangles.size();
-
-    CUDA_CHECK(cudaMalloc(&d_triangles[buildInputId], tri_size));
-    CUDA_CHECK(cudaMemcpy(d_triangles[buildInputId], triangles.data(), tri_size,
-                          cudaMemcpyHostToDevice));
-
-    triangle_input_flags[buildInputId] = OPTIX_GEOMETRY_FLAG_NONE;
-
-    triangle_input[buildInputId].type = OPTIX_BUILD_INPUT_TYPE_TRIANGLES;
-    triangle_input[buildInputId].triangleArray.vertexFormat =
-        OPTIX_VERTEX_FORMAT_FLOAT3;
-    triangle_input[buildInputId].triangleArray.numVertices =
-        static_cast<unsigned int>(vertices.size());
-    triangle_input[buildInputId].triangleArray.vertexBuffers =
-        reinterpret_cast<CUdeviceptr *>(&d_vertices[buildInputId]);
-    triangle_input[buildInputId].triangleArray.flags =
-        &triangle_input_flags[buildInputId];
-    triangle_input[buildInputId].triangleArray.numSbtRecords =
-        1; // using one per build input
-    triangle_input[buildInputId].triangleArray.indexFormat =
-        OPTIX_INDICES_FORMAT_UNSIGNED_INT3;
-    triangle_input[buildInputId].triangleArray.numIndexTriplets =
-        static_cast<unsigned int>(triangles.size());
-    triangle_input[buildInputId].triangleArray.indexBuffer =
-        reinterpret_cast<CUdeviceptr>(d_triangles[buildInputId]);
-  }
-
-  std::cout << "Total number of  triangles " << ntriangles << std::endl;
+  const unsigned int triangle_input_flags[1] = {OPTIX_GEOMETRY_FLAG_NONE};
+  OptixBuildInput triangle_input = {};
+  triangle_input.type = OPTIX_BUILD_INPUT_TYPE_TRIANGLES;
+  triangle_input.triangleArray.vertexFormat = OPTIX_VERTEX_FORMAT_FLOAT3;
+  triangle_input.triangleArray.numVertices =
+      static_cast<unsigned int>(vertices.size());
+  triangle_input.triangleArray.vertexBuffers =
+      reinterpret_cast<CUdeviceptr *>(&d_vertices);
+  triangle_input.triangleArray.flags = triangle_input_flags;
+  triangle_input.triangleArray.numSbtRecords = 1;
+  triangle_input.triangleArray.indexFormat = OPTIX_INDICES_FORMAT_UNSIGNED_INT3;
+  triangle_input.triangleArray.numIndexTriplets =
+      static_cast<unsigned int>(triangles.size());
+  triangle_input.triangleArray.indexBuffer =
+      reinterpret_cast<CUdeviceptr>(d_triangles);
 
   OptixAccelBuildOptions accel_options = {};
   accel_options.buildFlags = OPTIX_BUILD_FLAG_ALLOW_COMPACTION;
   accel_options.operation = OPTIX_BUILD_OPERATION_BUILD;
 
   OptixAccelBufferSizes gas_buffer_sizes;
-  OPTIX_CHECK(optixAccelComputeMemoryUsage(
-      optix_context, &accel_options, triangle_input.data(),
-      nbuildInputs, // Number of build inputs =2
-      &gas_buffer_sizes));
+  OPTIX_CHECK(optixAccelComputeMemoryUsage(optix_context, &accel_options,
+                                           &triangle_input,
+                                           1, // Number of build input
+                                           &gas_buffer_sizes));
   void *d_temp_buffer_gas;
   CUDA_CHECK(cudaMalloc(&d_temp_buffer_gas, gas_buffer_sizes.tempSizeInBytes));
 
@@ -314,9 +285,9 @@ OptixAabb RTXDataHolder::buildAccelerationStructure(
                     compactedSizeOffset);
 
   OPTIX_CHECK(optixAccelBuild(optix_context,
-                              this->stream, // CUDA stream
-                              &accel_options, triangle_input.data(),
-                              nbuildInputs, // num build inputs =2
+                              0, // CUDA stream
+                              &accel_options, &triangle_input,
+                              1, // num build inputs
                               reinterpret_cast<CUdeviceptr>(d_temp_buffer_gas),
                               gas_buffer_sizes.tempSizeInBytes,
                               reinterpret_cast<CUdeviceptr>(
@@ -327,11 +298,6 @@ OptixAabb RTXDataHolder::buildAccelerationStructure(
                               ));
 
   CUDA_CHECK(cudaFree(d_temp_buffer_gas));
-
-  for (int buildInputId = 0; buildInputId < nbuildInputs; ++buildInputId) {
-    CUDA_CHECK(cudaFree(d_vertices[buildInputId]));
-    CUDA_CHECK(cudaFree(d_triangles[buildInputId]));
-  }
 
   size_t compacted_gas_size;
   CUDA_CHECK(cudaMemcpy(&compacted_gas_size, (void *)emitProperty.result,
@@ -350,10 +316,9 @@ OptixAabb RTXDataHolder::buildAccelerationStructure(
   } else {
     d_gas_output_buffer = d_buffer_temp_output_gas_and_compacted_size;
   }
-
+  CUDA_CHECK(cudaFree(d_vertices));
   return aabb;
 }
-
 void RTXDataHolder::setStream(const cudaStream_t &stream_in) {
   this->stream = stream_in;
 }
@@ -366,10 +331,9 @@ RTXDataHolder::~RTXDataHolder() {
   OPTIX_CHECK(optixModuleDestroy(module));
 }
 
-void RTXDataHolder::read_obj_mesh(const std::string &obj_filename,
-                                  std::vector<float3> &vertices,
-                                  std::vector<uint3> &triangles,
-                                  OptixAabb &aabb) {
+OptixAabb RTXDataHolder::read_obj_mesh(const std::string &obj_filename,
+                                       std::vector<float3> &vertices,
+                                       std::vector<uint3> &triangles) {
   tinyobj::attrib_t attrib;
   std::vector<tinyobj::shape_t> shapes;
   std::vector<tinyobj::material_t> materials;
@@ -378,10 +342,13 @@ void RTXDataHolder::read_obj_mesh(const std::string &obj_filename,
   std::string err;
   bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err,
                               obj_filename.c_str());
+  OptixAabb aabb;
+  aabb.minX = aabb.minY = aabb.minZ = std::numeric_limits<float>::max();
+  aabb.maxX = aabb.maxY = aabb.maxZ = -std::numeric_limits<float>::max();
 
   if (!err.empty()) {
     std::cerr << err << std::endl;
-    return;
+    return aabb;
   }
 
   for (size_t s = 0; s < shapes.size(); s++) {
@@ -418,4 +385,5 @@ void RTXDataHolder::read_obj_mesh(const std::string &obj_filename,
           make_uint3(vertexOffset, vertexOffset + 1, vertexOffset + 2));
     }
   }
+  return aabb;
 }

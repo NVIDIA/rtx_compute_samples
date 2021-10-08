@@ -49,25 +49,14 @@ uint32_t depth = 1u;
 // uint32_t  width  = 10000u;   // buffer size x
 
 int main(int argc, char **argv) {
-
-  std::vector<std::vector<std::string>> buildInputsFileName = {{"sphere"}};
-
-  for (int i = 0; i < buildInputsFileName.size(); ++i) {
-    for (int j = 0; j < buildInputsFileName[i].size(); ++j) {
-      std::string obj_file = OBJ_DIR "" + buildInputsFileName[i][j] + ".obj";
-      buildInputsFileName[i][j] = obj_file;
-      std::cout << "Adding mesh file = " << obj_file << " to buildInput " << i
-                << std::endl;
-    }
-  }
-
+  std::string obj_file = OBJ_DIR "sphere.obj";
   std::string ptx_filename = BUILD_DIR "/ptx/optixPrograms.ptx";
-
+std::cout<< " ptx file = " <<ptx_filename <<std::endl;
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
 
   rtx_dataholder = new RTXDataHolder();
-  rtx_dataholder->setStream(stream);
+  //rtx_dataholder->setStream(stream);
   std::cout << "Initializing Context \n";
   rtx_dataholder->initContext();
   std::cout << "Reading PTX file and creating modules \n";
@@ -78,16 +67,18 @@ int main(int argc, char **argv) {
   rtx_dataholder->linkPipeline();
   std::cout << "Building Shader Binding Table (SBT) \n";
   rtx_dataholder->buildSBT();
-  std::cout << "Building Geometry Acceleration Structure (GAS) \n";
-  OptixAabb aabb_box_one = rtx_dataholder->buildAccelerationStructure(buildInputsFileName);
+ std::vector<float3> vertices;
+  std::vector<uint3> triangles;
+  std::cout << "Building Acceleration Structure \n";
+  OptixAabb aabb_box_oneSphere =
+      rtx_dataholder->buildAccelerationStructure(obj_file, vertices, triangles);
   std::cout << "Building Instancing Acceleration Structure (IAS) \n";
   rtx_dataholder->buildIAS();
-
+ 
   // just to get aabbb of all 5 spheres
-  std::vector<float3> vertices;
-  std::vector<uint3> triangles;
-  OptixAabb aabb_box;
-  rtx_dataholder->read_obj_mesh(OBJ_DIR "spheres5.obj", vertices, triangles, aabb_box);
+  std::vector<float3> vertices5;
+  std::vector<uint3> triangles5;
+  OptixAabb aabb_box =   rtx_dataholder->read_obj_mesh(OBJ_DIR "spheres5.obj", vertices, triangles);
  
   // calculate delta
   float3 delta = make_float3((aabb_box.maxX - aabb_box.minX) / width,
