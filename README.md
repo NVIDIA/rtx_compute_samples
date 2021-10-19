@@ -32,6 +32,17 @@ This sample shows how to determine the set of unique paths (scattering sequences
 
 This sample shows how to generate rays and bounce them across different surfaces. Rays are reflected between different surfaces and the rays keep bouncing until *max_bounce* is reached. Ray energy can be damped similar to signal propagation, rays can be refracted, and energy can be deposited at different hit points. This is a typical use case in wave propagation.
 
+## optixRayScatteringInstancing ##
+**Scattering rays by reflection or refraction with instancing.**
+
+This sample shows how to generate rays and bounce them across different surfaces. Rays are reflected between different surfaces and the rays keep bouncing until *max_bounce* is reached. Ray energy can be damped similar to signal propagation, rays can be refracted, and energy can be deposited at different hit points. This is a typical use case in wave propagation. Instancing of the geometry is used to replicate the surface. 
+
+
+## optixRayScatteringMaterials ##
+**Scattering rays by reflection, refraction and with absorbption.**
+
+This sample shows how to generate rays and bounce them across different surfaces. Rays are reflected between different surfaces and the rays keep bouncing until *max_bounce* is reached. Ray energy can be damped similar to signal propagation, rays can be refracted, and energy can be deposited at different hit points. Rays can also be absorb depending on the material of the object, this is accomplished with different build inputs and their respective hit group. This is a typical use case in wave propagation.
+
 ## optixVolumeSampling ##
 **Volume sampling techniques.**
 
