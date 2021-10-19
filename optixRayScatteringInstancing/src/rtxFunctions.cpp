@@ -70,7 +70,7 @@ void RTXDataHolder::createModule(const std::string ptx_filename) {
 
   pipeline_compile_options.usesMotionBlur = 0;
   // set this flag to allow one instancing AS with geometry AS
-  pipeline_compile_options.traversableGraphFlags =OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_ANY ; // OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_LEVEL_INSTANCING;  
+  pipeline_compile_options.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_LEVEL_INSTANCING;  
   pipeline_compile_options.numPayloadValues = 2;
   pipeline_compile_options.numAttributeValues = 2;
   pipeline_compile_options.exceptionFlags = OPTIX_EXCEPTION_FLAG_NONE;
