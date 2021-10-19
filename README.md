@@ -39,7 +39,7 @@ This sample shows how to generate rays and bounce them across different surfaces
 
 
 ## optixRayScatteringMaterials ##
-**Scattering rays by reflection, refraction and with absorbption.**
+**Scattering rays by reflection, refraction and with absorption.**
 
 This sample shows how to generate rays and bounce them across different surfaces. Rays are reflected between different surfaces and the rays keep bouncing until *max_bounce* is reached. Ray energy can be damped similar to signal propagation, rays can be refracted, and energy can be deposited at different hit points. Rays can also be absorb depending on the material of the object, this is accomplished with different build inputs and their respective hit group. This is a typical use case in wave propagation.
 
