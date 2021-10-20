@@ -29,7 +29,7 @@
 #include <iostream>
 
 #include "common/common.h"
- 
+
 #include "params.hpp"
 #include "rtxFunctions.hpp"
 
@@ -49,25 +49,14 @@ uint32_t depth = 1u;
 // uint32_t  width  = 10000u;   // buffer size x
 
 int main(int argc, char **argv) {
-
-// input obj files  inner vector per buildInput: {"planes0", "planes1"} -> buildinput 0,  {"sphere"} -> buildinput 1
-  std::vector<std::vector<std::string>> buildInputsFileName =   {    {"planes0", "planes1"},  {"sphere"} };
-
-  for(int i= 0; i< buildInputsFileName.size() ; ++i ){
-    for( int j = 0 ; j< buildInputsFileName[i].size(); ++j) {
-      std::string obj_file = OBJ_DIR "" + buildInputsFileName[i][j] + ".obj";
-      buildInputsFileName[i][j] = obj_file;
-      std::cout << "Adding mesh file = " << obj_file << " to buildInput "<< i << std::endl;
-      }
-  }
- 
+  std::string obj_file = OBJ_DIR "sphere.obj";
   std::string ptx_filename = BUILD_DIR "/ptx/optixPrograms.ptx";
-
+std::cout<< " ptx file = " <<ptx_filename <<std::endl;
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
 
   rtx_dataholder = new RTXDataHolder();
-  rtx_dataholder -> setStream(stream);
+  //rtx_dataholder->setStream(stream);
   std::cout << "Initializing Context \n";
   rtx_dataholder->initContext();
   std::cout << "Reading PTX file and creating modules \n";
@@ -78,34 +67,41 @@ int main(int argc, char **argv) {
   rtx_dataholder->linkPipeline();
   std::cout << "Building Shader Binding Table (SBT) \n";
   rtx_dataholder->buildSBT();
-
+ std::vector<float3> vertices;
+  std::vector<uint3> triangles;
   std::cout << "Building Acceleration Structure \n";
-  OptixAabb aabb_box = rtx_dataholder->buildAccelerationStructure(buildInputsFileName);
+  OptixAabb aabb_box_oneSphere =
+      rtx_dataholder->buildAccelerationStructure(obj_file, vertices, triangles);
+        std::cout << "Built Acceleration Structure with " << triangles.size() <<" triangles \n";
+  std::cout << "Building Instancing Acceleration Structure (IAS) ";
+  rtx_dataholder->buildIAS();
 
+  // fix aabbb of all 5 spheres
+  OptixAabb aabb_box = {-0.2, -0.2, -0.2, 1.2, 1.2, 1.2} ; 
+ 
   // calculate delta
   float3 delta = make_float3((aabb_box.maxX - aabb_box.minX) / width,
                              (aabb_box.maxY - aabb_box.minY) / height,
                              (aabb_box.maxZ - aabb_box.minZ) / depth);
   float3 min_corner = make_float3(aabb_box.minX, aabb_box.minY, aabb_box.minZ);
-
-  uint32_t *d_hits;
-  CUDA_CHECK(cudaMalloc((void **)&d_hits, 3* sizeof(uint32_t)));
-  CUDA_CHECK(cudaMemset(d_hits, 0, 3*sizeof(uint32_t)));
  
+  float *d_tpath;
+  CUDA_CHECK(cudaMalloc((void **)&d_tpath, width * height * depth* sizeof(float)));
+
   // Algorithmic parameters and data pointers used in GPU program
   Params params;
   params.min_corner = min_corner;
   params.delta = delta;
-  params.handle = rtx_dataholder->gas_handle;
+  params.handle = rtx_dataholder->ias_handle;
   params.width = width;
   params.height = height;
   params.depth = depth;
-  params.hitCounter =  d_hits;
- 
+  params.tpath = d_tpath;
 
   Params *d_param;
   CUDA_CHECK(cudaMalloc((void **)&d_param, sizeof(Params)));
-  CUDA_CHECK(cudaMemcpy(d_param, &params, sizeof(params), cudaMemcpyHostToDevice));
+  CUDA_CHECK(
+      cudaMemcpy(d_param, &params, sizeof(params), cudaMemcpyHostToDevice));
 
   const OptixShaderBindingTable &sbt = rtx_dataholder->sbt;
 
@@ -113,16 +109,10 @@ int main(int argc, char **argv) {
   OPTIX_CHECK(optixLaunch(rtx_dataholder->pipeline, stream,
                           reinterpret_cast<CUdeviceptr>(d_param),
                           sizeof(Params), &sbt, width, height, depth));
-
   CUDA_CHECK(cudaDeviceSynchronize());
-  const float nrays = width*height*depth;
-  uint32_t hits[3];
-  CUDA_CHECK(cudaMemcpy(&hits, params.hitCounter ,3*sizeof(uint32_t), cudaMemcpyDeviceToHost));
-  std::cout<< "Result: Launched  "<< nrays     <<" rays of which " <<  hits[SPHERE]/( nrays-hits[MISS] )*100.0 << "% of ray hits hit the sphere (" <<hits[SPHERE]<<") and "<< hits[PLANE]/( nrays-hits[MISS] )*100.0  << "% of ray hits hit the planes (" <<hits[PLANE]<<") and " << hits[MISS]/( nrays )*100.0 << "% of rays missed   \n";
-
   std::cout << "Cleaning up ... \n";
+  CUDA_CHECK(cudaFree(d_tpath));
   CUDA_CHECK(cudaFree(d_param));
-  CUDA_CHECK(cudaFree(d_hits));
   delete rtx_dataholder;
   CUDA_CHECK(cudaStreamDestroy(stream));
 

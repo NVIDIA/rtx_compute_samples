@@ -69,7 +69,7 @@ void RTXDataHolder::createModule(const std::string ptx_filename) {
   pipeline_compile_options.usesMotionBlur = 0;
   pipeline_compile_options.traversableGraphFlags =
       OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_GAS;
-  pipeline_compile_options.numPayloadValues = 1;
+  pipeline_compile_options.numPayloadValues =2;
   pipeline_compile_options.numAttributeValues = 2;
   pipeline_compile_options.exceptionFlags = OPTIX_EXCEPTION_FLAG_DEBUG;
   pipeline_compile_options.pipelineLaunchParamsVariableName = "params";
@@ -102,26 +102,26 @@ void RTXDataHolder::createProgramGroups() {
                                       &program_group_options, nullptr, nullptr,
                                       &miss_prog_group));
 
-//creating hitgroup_prog_group_desc_plane for plane CH
-  OptixProgramGroupDesc hitgroup_prog_group_desc_plane = {}; // Hit group programs
-  hitgroup_prog_group_desc_plane.kind = OPTIX_PROGRAM_GROUP_KIND_HITGROUP;
-  hitgroup_prog_group_desc_plane.hitgroup.moduleCH = module;
-  hitgroup_prog_group_desc_plane.hitgroup.entryFunctionNameCH = "__closesthit__prog_planes";
-  hitgroup_prog_group_desc_plane.hitgroup.moduleAH = nullptr;
-  hitgroup_prog_group_desc_plane.hitgroup.entryFunctionNameAH = nullptr;
+//creating hitgroup_prog_group_desc_reflector_refractor for reflector_refractor CH
+  OptixProgramGroupDesc hitgroup_prog_group_desc_reflector_refractor = {}; // Hit group programs
+  hitgroup_prog_group_desc_reflector_refractor.kind = OPTIX_PROGRAM_GROUP_KIND_HITGROUP;
+  hitgroup_prog_group_desc_reflector_refractor.hitgroup.moduleCH = module;
+  hitgroup_prog_group_desc_reflector_refractor.hitgroup.entryFunctionNameCH = "__closesthit__reflector_refractor_prog";
+  hitgroup_prog_group_desc_reflector_refractor.hitgroup.moduleAH = nullptr;
+  hitgroup_prog_group_desc_reflector_refractor.hitgroup.entryFunctionNameAH = nullptr;
 
-//creating hitgroup_prog_group_desc_sphere for sphere CH
-  OptixProgramGroupDesc hitgroup_prog_group_desc_sphere = {}; // Hit group programs
-  hitgroup_prog_group_desc_sphere.kind = OPTIX_PROGRAM_GROUP_KIND_HITGROUP;
-  hitgroup_prog_group_desc_sphere.hitgroup.moduleCH = module;
-  hitgroup_prog_group_desc_sphere.hitgroup.entryFunctionNameCH = "__closesthit__prog_sphere";
-  hitgroup_prog_group_desc_sphere.hitgroup.moduleAH = nullptr;
-  hitgroup_prog_group_desc_sphere.hitgroup.entryFunctionNameAH = nullptr;
+//creating hitgroup_prog_group_desc_absorber for absorber CH
+  OptixProgramGroupDesc hitgroup_prog_group_desc_absorber = {}; // Hit group programs
+  hitgroup_prog_group_desc_absorber.kind = OPTIX_PROGRAM_GROUP_KIND_HITGROUP;
+  hitgroup_prog_group_desc_absorber.hitgroup.moduleCH = module;
+  hitgroup_prog_group_desc_absorber.hitgroup.entryFunctionNameCH = "__closesthit__absorber_prog";
+  hitgroup_prog_group_desc_absorber.hitgroup.moduleAH = nullptr;
+  hitgroup_prog_group_desc_absorber.hitgroup.entryFunctionNameAH = nullptr;
 
   hitgroup_prog_groups.resize(2);
   OptixProgramGroupDesc hitgroup_prog_group_descs[2] ;
-  hitgroup_prog_group_descs[PLANE] = hitgroup_prog_group_desc_plane;
-  hitgroup_prog_group_descs[SPHERE] = hitgroup_prog_group_desc_sphere;
+  hitgroup_prog_group_descs[REFLECTOR] = hitgroup_prog_group_desc_reflector_refractor;
+  hitgroup_prog_group_descs[ABSORBER] = hitgroup_prog_group_desc_absorber;
   
   // create hitgroup_prog_groups from hitgroup_prog_group_descs
   OPTIX_CHECK(optixProgramGroupCreate(optix_context, hitgroup_prog_group_descs,
@@ -133,7 +133,7 @@ void RTXDataHolder::createProgramGroups() {
 void RTXDataHolder::linkPipeline() {
 
   std::vector<OptixProgramGroup> program_groups = {raygen_prog_group, miss_prog_group,
-                                        hitgroup_prog_groups[PLANE], hitgroup_prog_groups[SPHERE]};
+                                        hitgroup_prog_groups[REFLECTOR], hitgroup_prog_groups[ABSORBER]};
 
 
   OptixPipelineLinkOptions pipeline_link_options = {};
@@ -167,8 +167,8 @@ void RTXDataHolder::buildSBT() {
   std::vector<HitGroupSbtRecord> hgSBT( hitgroupSbtRecordSize );
   void *hitgroupSbtRecords;
   CUDA_CHECK(cudaMalloc((void **)&hitgroupSbtRecords, hitgroupSbtRecordSize*sizeof(HitGroupSbtRecord)));
-  OPTIX_CHECK(optixSbtRecordPackHeader(hitgroup_prog_groups[PLANE], &hgSBT[PLANE]));
-  OPTIX_CHECK(optixSbtRecordPackHeader(hitgroup_prog_groups[SPHERE], &hgSBT[SPHERE]));
+  OPTIX_CHECK(optixSbtRecordPackHeader(hitgroup_prog_groups[REFLECTOR], &hgSBT[REFLECTOR]));
+  OPTIX_CHECK(optixSbtRecordPackHeader(hitgroup_prog_groups[ABSORBER], &hgSBT[ABSORBER]));
   CUDA_CHECK(cudaMemcpy(hitgroupSbtRecords, &hgSBT[0], hitgroupSbtRecordSize*sizeof(HitGroupSbtRecord),
                         cudaMemcpyHostToDevice));
 
@@ -236,7 +236,7 @@ RTXDataHolder::buildAccelerationStructure(std::vector<std::vector<std::string>>&
   std::cout << "Total number of  triangles "<< ntriangles << std::endl; 
   
   OptixAccelBuildOptions accel_options = {};
-  accel_options.buildFlags = OPTIX_BUILD_FLAG_ALLOW_COMPACTION;
+  accel_options.buildFlags = OPTIX_BUILD_FLAG_ALLOW_RANDOM_VERTEX_ACCESS | OPTIX_BUILD_FLAG_ALLOW_COMPACTION;
   accel_options.operation = OPTIX_BUILD_OPERATION_BUILD;
 
   OptixAccelBufferSizes gas_buffer_sizes;
@@ -310,8 +310,8 @@ RTXDataHolder::~RTXDataHolder() {
   OPTIX_CHECK(optixPipelineDestroy(pipeline));
   OPTIX_CHECK(optixProgramGroupDestroy(raygen_prog_group));
   OPTIX_CHECK(optixProgramGroupDestroy(miss_prog_group));
-  OPTIX_CHECK(optixProgramGroupDestroy(hitgroup_prog_groups[PLANE]));
-  OPTIX_CHECK(optixProgramGroupDestroy(hitgroup_prog_groups[SPHERE]));
+  OPTIX_CHECK(optixProgramGroupDestroy(hitgroup_prog_groups[REFLECTOR]));
+  OPTIX_CHECK(optixProgramGroupDestroy(hitgroup_prog_groups[ABSORBER]));
   OPTIX_CHECK(optixModuleDestroy(module));
 }
 

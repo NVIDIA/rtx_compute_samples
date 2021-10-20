@@ -88,10 +88,9 @@ int main(int argc, char **argv) {
                              (aabb_box.maxZ - aabb_box.minZ) / depth);
   float3 min_corner = make_float3(aabb_box.minX, aabb_box.minY, aabb_box.minZ);
 
-  uint32_t *d_hits;
-  CUDA_CHECK(cudaMalloc((void **)&d_hits, 3* sizeof(uint32_t)));
-  CUDA_CHECK(cudaMemset(d_hits, 0, 3*sizeof(uint32_t)));
- 
+  float *d_tpath;
+  CUDA_CHECK(cudaMalloc((void **)&d_tpath, width * height * sizeof(float)));
+
   // Algorithmic parameters and data pointers used in GPU program
   Params params;
   params.min_corner = min_corner;
@@ -100,8 +99,7 @@ int main(int argc, char **argv) {
   params.width = width;
   params.height = height;
   params.depth = depth;
-  params.hitCounter =  d_hits;
- 
+  params.tpath = d_tpath;
 
   Params *d_param;
   CUDA_CHECK(cudaMalloc((void **)&d_param, sizeof(Params)));
@@ -114,15 +112,10 @@ int main(int argc, char **argv) {
                           reinterpret_cast<CUdeviceptr>(d_param),
                           sizeof(Params), &sbt, width, height, depth));
 
-  CUDA_CHECK(cudaDeviceSynchronize());
-  const float nrays = width*height*depth;
-  uint32_t hits[3];
-  CUDA_CHECK(cudaMemcpy(&hits, params.hitCounter ,3*sizeof(uint32_t), cudaMemcpyDeviceToHost));
-  std::cout<< "Result: Launched  "<< nrays     <<" rays of which " <<  hits[SPHERE]/( nrays-hits[MISS] )*100.0 << "% of ray hits hit the sphere (" <<hits[SPHERE]<<") and "<< hits[PLANE]/( nrays-hits[MISS] )*100.0  << "% of ray hits hit the planes (" <<hits[PLANE]<<") and " << hits[MISS]/( nrays )*100.0 << "% of rays missed   \n";
 
   std::cout << "Cleaning up ... \n";
   CUDA_CHECK(cudaFree(d_param));
-  CUDA_CHECK(cudaFree(d_hits));
+  CUDA_CHECK(cudaFree(d_tpath));
   delete rtx_dataholder;
   CUDA_CHECK(cudaStreamDestroy(stream));
 
