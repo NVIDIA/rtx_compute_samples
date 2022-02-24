@@ -21,12 +21,6 @@ This sample shows a 2D projection of a 3D mesh onto 6 planes along the coordinat
 
 This sample shows how to identify cells that need refinement in a 3D structured mesh. We start with a coarse 3D structured grid overlapping a triangle geometry. Rays are used to identify cells that contain geometry and are tagged for refinement. This process can be repeated for multi stage mesh refinement.
 
-## optixUniqPaths ##
-**Finding unique bounce paths of rays in a complex geometry.**
-
-This sample shows how to determine the set of unique paths (scattering sequences) through a complex geometry. We send a number of rays into a geometry consisting of perfect reflectors read from a file (in case of the sample, a sphere and two planes). For each ray, the sequence of reflections is recorded. Once all the sequences have been determined, a set of unique paths is constructed. 
-
-
 ## optixRayScattering ##
 **Scattering rays by reflection or refraction.**
 
