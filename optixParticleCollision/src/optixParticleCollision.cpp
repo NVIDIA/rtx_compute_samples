@@ -111,6 +111,7 @@ int main(int argc, char *argv[]) try {
             << "Number of Particles: " << std::setw(12) << std::right
             << num_particles << "\n";
 
+  g_pipeline_params.handle = rtx_dataholder->gas_handle;
   // Initialize Particle's Position & Velocity
   initialize_particles(num_particles, aabb_box,
                        &(g_pipeline_params.particle_positions),
